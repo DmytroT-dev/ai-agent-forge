@@ -1,0 +1,4 @@
+# Copy to application-local.yml (git-ignored) and fill in real values.
+agent:
+  session:
+    file: sessions/current-session-id

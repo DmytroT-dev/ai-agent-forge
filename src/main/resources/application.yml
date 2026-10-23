@@ -1,0 +1,3 @@
+agent:
+  session:
+    file: ${AGENT_SESSION_FILE:sessions/current-session-id}

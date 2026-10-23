@@ -85,5 +85,6 @@ Update this section in every PR that changes the project state.
 
 - GitHub repository created and public, `main` protected by a ruleset (pull request required).
 - `.gitignore` added.
-- Next step: create the Spring Boot project skeleton and a simple echo bot,
+- Spring Boot skeleton (Maven, package `com.dmytrot.agentforge`) with a file-based session id store.
+- Next step: add the Telegram echo bot with the user id whitelist,
   then run the first deploy through the full pipeline.
