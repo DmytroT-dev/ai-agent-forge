@@ -15,14 +15,28 @@ class StreamJsonParserTest {
             + "\"result\":\"Hi there\",\"session_id\":\"abc-123\"}";
 
     assertThat(parser.parseResult(line))
-        .contains(new AgentReply("Hi there", "abc-123", false));
+        .contains(new AgentReply("Hi there", "abc-123", false, null));
   }
 
   @Test
   void marksErrorResult() {
     String line = "{\"type\":\"result\",\"is_error\":true,\"result\":\"boom\"}";
 
-    assertThat(parser.parseResult(line)).contains(new AgentReply("boom", null, true));
+    assertThat(parser.parseResult(line)).contains(new AgentReply("boom", null, true, null));
+  }
+
+  @Test
+  void measuresContextByTheLastTurn() {
+    String line =
+        "{\"type\":\"result\",\"result\":\"x\",\"usage\":{\"input_tokens\":999,"
+            + "\"iterations\":[{\"input_tokens\":1,\"cache_creation_input_tokens\":10,"
+            + "\"cache_read_input_tokens\":100,\"output_tokens\":5},"
+            + "{\"input_tokens\":2,\"cache_creation_input_tokens\":20,"
+            + "\"cache_read_input_tokens\":200,\"output_tokens\":8}]},"
+            + "\"modelUsage\":{\"m\":{\"contextWindow\":1000000}}}";
+
+    assertThat(parser.parseResult(line).orElseThrow().usage())
+        .isEqualTo(new ContextUsage(230, 1_000_000));
   }
 
   @Test
