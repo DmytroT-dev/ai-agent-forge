@@ -87,5 +87,6 @@ Update this section in every PR that changes the project state.
 - `.gitignore` added.
 - Spring Boot skeleton (Maven, package `com.dmytrot.agentforge`) with a file-based session id store.
 - Telegram echo bot with a user id whitelist (long polling, `telegrambots` 8.3.0).
-- Next step: run the first deploy through the full pipeline,
-  then replace the echo with Claude Code CLI launched via `ProcessBuilder`.
+- Echo replaced by Claude Code CLI (`ProcessBuilder`, `stream-json`, `--resume` with the stored session id).
+  The prompt goes through stdin; the workspace must be outside this repository.
+- Next step: bot commands `/new`, `/stop`, `/status`, then the first deploy through the full pipeline.

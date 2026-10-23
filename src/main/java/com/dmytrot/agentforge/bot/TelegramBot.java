@@ -9,7 +9,7 @@ import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 public class TelegramBot implements SpringLongPollingBot {
 
   private final BotProperties properties;
-  private final EchoUpdateConsumer consumer;
+  private final AgentUpdateConsumer consumer;
 
   /**
    * Creates the bot.
@@ -17,7 +17,7 @@ public class TelegramBot implements SpringLongPollingBot {
    * @param properties Telegram settings
    * @param consumer handler for incoming updates
    */
-  public TelegramBot(BotProperties properties, EchoUpdateConsumer consumer) {
+  public TelegramBot(BotProperties properties, AgentUpdateConsumer consumer) {
     this.properties = properties;
     this.consumer = consumer;
   }

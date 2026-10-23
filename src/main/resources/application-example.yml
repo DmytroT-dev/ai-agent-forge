@@ -3,6 +3,11 @@
 agent:
   session:
     file: sessions/current-session-id
+  claude:
+    command: claude
+    workspace: ../agent-forge-workspace
+    timeout: 10m
+    permission-mode: acceptEdits
 
 telegram:
   token: 123456:replace-with-token-from-botfather

@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
     properties = {
       "telegram.token=test-token",
       "telegram.allowed-user-id=1",
+      "agent.claude.workspace=target/test-workspace",
       "spring.autoconfigure.exclude="
           + "org.telegram.telegrambots.longpolling.starter.TelegramBotStarterConfiguration"
     })
