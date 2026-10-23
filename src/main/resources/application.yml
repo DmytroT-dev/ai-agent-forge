@@ -1,3 +1,7 @@
 agent:
   session:
     file: ${AGENT_SESSION_FILE:sessions/current-session-id}
+
+telegram:
+  token: ${TELEGRAM_BOT_TOKEN}
+  allowed-user-id: ${TELEGRAM_ALLOWED_USER_ID}

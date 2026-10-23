@@ -86,5 +86,6 @@ Update this section in every PR that changes the project state.
 - GitHub repository created and public, `main` protected by a ruleset (pull request required).
 - `.gitignore` added.
 - Spring Boot skeleton (Maven, package `com.dmytrot.agentforge`) with a file-based session id store.
-- Next step: add the Telegram echo bot with the user id whitelist,
-  then run the first deploy through the full pipeline.
+- Telegram echo bot with a user id whitelist (long polling, `telegrambots` 8.3.0).
+- Next step: run the first deploy through the full pipeline,
+  then replace the echo with Claude Code CLI launched via `ProcessBuilder`.

@@ -1,4 +1,9 @@
 # Copy to application-local.yml (git-ignored) and fill in real values.
+# Prefer the environment variables TELEGRAM_BOT_TOKEN and TELEGRAM_ALLOWED_USER_ID.
 agent:
   session:
     file: sessions/current-session-id
+
+telegram:
+  token: 123456:replace-with-token-from-botfather
+  allowed-user-id: 111111111
