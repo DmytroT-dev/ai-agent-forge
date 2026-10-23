@@ -1,6 +1,7 @@
-﻿# Secrets
+# Secrets
 .env
 .env.*
+!.env.example
 application-local.yml
 application-local.properties
 application-secrets*.yml
