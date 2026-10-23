@@ -1,1 +1,17 @@
+﻿# Secrets
+.env
+.env.*
+application-local.yml
+application-local.properties
+application-secrets*.yml
+*.key
+*.pem
+*.p12
+*.jks
+id_rsa*
+id_ed25519*
 
+# Local data
+workspace/
+sessions/
+*.log
