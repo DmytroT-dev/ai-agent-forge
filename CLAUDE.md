@@ -89,5 +89,5 @@ Update this section in every PR that changes the project state.
 - Telegram echo bot with a user id whitelist (long polling, `telegrambots` 8.3.0).
 - Echo replaced by Claude Code CLI (`ProcessBuilder`, `stream-json`, `--resume` with the stored session id).
   The prompt goes through stdin; the workspace must be outside this repository.
-- Bot commands `/new`, `/stop`, `/status` (task, session, context window usage from the CLI result).
+- `/status` also shows the subscription limits (5 hours and weekly) reported by the CLI; `/continue` resumes a stopped task.
 - Next step: stream progress to the chat while a task runs, then the first deploy through the full pipeline.

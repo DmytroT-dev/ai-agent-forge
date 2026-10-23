@@ -1,8 +1,10 @@
 package com.dmytrot.agentforge.agent;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dmytrot.agentforge.session.SessionStore;
+import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -12,7 +14,7 @@ class AgentServiceTest {
 
   @Test
   void firstTaskStartsNewSessionAndSavesItsId() {
-    FakeRunner runner = new FakeRunner(new AgentReply("ok", "s1", false, null));
+    FakeRunner runner = new FakeRunner(new AgentReply("ok", "s1", false, null, null));
 
     new AgentService(runner, store).ask("hello");
 
@@ -23,7 +25,7 @@ class AgentServiceTest {
   @Test
   void nextTaskResumesSavedSession() {
     store.save("s1");
-    FakeRunner runner = new FakeRunner(new AgentReply("ok", "s1", false, null));
+    FakeRunner runner = new FakeRunner(new AgentReply("ok", "s1", false, null, null));
 
     new AgentService(runner, store).ask("again");
 
@@ -33,7 +35,7 @@ class AgentServiceTest {
   @Test
   void failedRunDoesNotOverwriteSession() {
     store.save("s1");
-    FakeRunner runner = new FakeRunner(new AgentReply("boom", "s2", true, null));
+    FakeRunner runner = new FakeRunner(new AgentReply("boom", "s2", true, null, null));
 
     new AgentService(runner, store).ask("task");
 
@@ -43,7 +45,7 @@ class AgentServiceTest {
   @Test
   void remembersContextUsageOfLastTask() {
     ContextUsage usage = new ContextUsage(1_000, 10_000);
-    FakeRunner runner = new FakeRunner(new AgentReply("ok", "s1", false, usage));
+    FakeRunner runner = new FakeRunner(new AgentReply("ok", "s1", false, usage, null));
     AgentService service = new AgentService(runner, store);
 
     service.ask("hello");
@@ -54,7 +56,7 @@ class AgentServiceTest {
   @Test
   void newSessionClearsIdAndUsage() {
     FakeRunner runner =
-        new FakeRunner(new AgentReply("ok", "s1", false, new ContextUsage(1, 10)));
+        new FakeRunner(new AgentReply("ok", "s1", false, new ContextUsage(1, 10), null));
     AgentService service = new AgentService(runner, store);
     service.ask("hello");
 
@@ -73,11 +75,35 @@ class AgentServiceTest {
     assertThat(runner.cancelled).isTrue();
   }
 
+  @Test
+  void stoppedTaskKeepsItsSessionForContinue() {
+    FakeRunner runner = new FakeRunner(null);
+    runner.cancelWith = new AgentCancelledException("s-stopped");
+
+    assertThatThrownBy(() -> new AgentService(runner, store).ask("long task"))
+        .isInstanceOf(AgentCancelledException.class);
+
+    assertThat(store.load()).contains("s-stopped");
+  }
+
+  @Test
+  void rateLimitsSurviveNewSession() {
+    RateLimits limits = new RateLimits(new RateLimits.Window(0.5, Instant.EPOCH), null);
+    FakeRunner runner = new FakeRunner(new AgentReply("ok", "s1", false, null, limits));
+    AgentService service = new AgentService(runner, store);
+    service.ask("hello");
+
+    service.startNewSession();
+
+    assertThat(service.rateLimits()).contains(limits);
+  }
+
   private static final class FakeRunner implements AgentRunner {
 
     private final AgentReply reply;
     private Optional<String> lastSession;
     private boolean cancelled;
+    private AgentCancelledException cancelWith;
 
     FakeRunner(AgentReply reply) {
       this.reply = reply;
@@ -86,6 +112,9 @@ class AgentServiceTest {
     @Override
     public AgentReply run(String prompt, Optional<String> sessionId) {
       lastSession = sessionId;
+      if (cancelWith != null) {
+        throw cancelWith;
+      }
       return reply;
     }
 

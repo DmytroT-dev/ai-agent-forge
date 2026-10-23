@@ -44,7 +44,7 @@ class AgentUpdateConsumerTest {
 
   @Test
   void sendsAgentAnswerToAllowedUser() throws TelegramApiException {
-    when(agent.ask("hello")).thenReturn(new AgentReply("answer", "s1", false, null));
+    when(agent.ask("hello")).thenReturn(new AgentReply("answer", "s1", false, null, null));
 
     consumer.consume(textUpdate(ALLOWED, 100L, "hello"));
 
@@ -71,8 +71,19 @@ class AgentUpdateConsumerTest {
   }
 
   @Test
-  void reportsStoppedTask() throws TelegramApiException {
-    when(agent.ask("hello")).thenThrow(new AgentCancelledException());
+  void continueCommandRunsFixedPromptThroughAgent() throws TelegramApiException {
+    when(agent.ask("Continue the task you were working on before it was interrupted."))
+        .thenReturn(new AgentReply("resumed", "s1", false, null, null));
+
+    consumer.consume(textUpdate(ALLOWED, 100L, "/continue"));
+
+    assertThat(sentTexts()).containsExactly("resumed");
+    verify(commands, never()).handle(any());
+  }
+
+  @Test
+  void reportsStoppedTask()throws TelegramApiException {
+    when(agent.ask("hello")).thenThrow(new AgentCancelledException(null));
 
     consumer.consume(textUpdate(ALLOWED, 100L, "hello"));
 

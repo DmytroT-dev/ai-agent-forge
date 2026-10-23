@@ -12,6 +12,8 @@ public class AgentService {
   private final SessionStore sessionStore;
   // Not persisted: it is only known after a task finishes in this run of the application.
   private volatile ContextUsage lastUsage;
+  // Belongs to the account, not to a session, so a new session keeps it.
+  private volatile RateLimits lastLimits;
 
   /**
    * Creates the service.
@@ -33,12 +35,24 @@ public class AgentService {
    * @throws AgentException if the agent could not produce an answer
    */
   public AgentReply ask(String prompt) {
-    AgentReply reply = runner.run(prompt, sessionStore.load());
+    AgentReply reply;
+    try {
+      reply = runner.run(prompt, sessionStore.load());
+    } catch (AgentCancelledException e) {
+      // The stopped task already left its work in the session, so keep it for "continue".
+      if (e.sessionId() != null) {
+        sessionStore.save(e.sessionId());
+      }
+      throw e;
+    }
     if (reply.sessionId() != null && !reply.error()) {
       sessionStore.save(reply.sessionId());
     }
     if (reply.usage() != null) {
       lastUsage = reply.usage();
+    }
+    if (reply.limits() != null) {
+      lastLimits = reply.limits();
     }
     return reply;
   }
@@ -71,5 +85,14 @@ public class AgentService {
    */
   public Optional<ContextUsage> contextUsage() {
     return Optional.ofNullable(lastUsage);
+  }
+
+  /**
+   * Returns the subscription limits seen during the last task.
+   *
+   * @return the limits, or empty if no task has reported them since the application started
+   */
+  public Optional<RateLimits> rateLimits() {
+    return Optional.ofNullable(lastLimits);
   }
 }
