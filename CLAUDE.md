@@ -6,7 +6,7 @@ The bot receives my Telegram messages, runs Claude Code CLI in headless mode as 
 and streams the output back to the chat.
 
 ## Tech stack
-- Java 21, Spring Boot
+- Java 21, Spring Boot, Maven
 - Telegram library: `telegrambots` (rubenlagus)
 - Agent engine: Claude Code CLI launched via `ProcessBuilder`,
   e.g. `claude -p "<prompt>" --output-format stream-json`
@@ -41,7 +41,8 @@ and streams the output back to the chat.
 - Reference secrets in code only through configuration properties, for example
   `${TELEGRAM_BOT_TOKEN}`.
 - Every file that can contain a secret MUST be listed in `.gitignore` BEFORE it is created.
-  Before every commit, check `git status` and `git diff --cached` for anything that looks like a secret.
+  Before every commit, check `git status` and `git diff --cached` for anything that looks like a secret,
+  and run `gitleaks protect --staged` if it is installed.
 - Never print secrets in logs, error messages, Telegram replies, PR descriptions, or commit messages.
 - Provide an `application-example.yml` with placeholder values so the required configuration
   is documented without exposing real values.
@@ -69,7 +70,8 @@ and streams the output back to the chat.
   this repository.
 - Never run destructive commands (`rm -rf`, `git reset --hard`, dropping databases, etc.)
   without my explicit confirmation.
-- `--dangerously-skip-permissions` is allowed only inside an isolated environment.
+- `--dangerously-skip-permissions` is allowed only inside an isolated environment: a container
+  or a dedicated unprivileged OS user with no access to secrets or to this repository's credentials.
 - Validate and sanitize everything that comes from Telegram before passing it to a process.
 - Never build shell commands by string concatenation with user input. Pass arguments
   as a list to `ProcessBuilder`.
@@ -79,6 +81,8 @@ and streams the output back to the chat.
 confirm/reject buttons for risky actions, and a push notification when a long task finishes.
 
 ## Current status
+Update this section in every PR that changes the project state.
+
 - GitHub repository created and public, `main` protected by a ruleset (pull request required).
 - `.gitignore` added.
 - Next step: create the Spring Boot project skeleton and a simple echo bot,
