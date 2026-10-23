@@ -1,6 +1,13 @@
 agent:
   session:
     file: ${AGENT_SESSION_FILE:sessions/current-session-id}
+  claude:
+    # On Windows the npm shim is claude.cmd, so set AGENT_CLAUDE_COMMAND=claude.cmd there.
+    command: ${AGENT_CLAUDE_COMMAND:claude}
+    # Must stay outside this repository, otherwise the CLI would pick up the repository's CLAUDE.md.
+    workspace: ${AGENT_WORKSPACE:../agent-forge-workspace}
+    timeout: ${AGENT_TIMEOUT:10m}
+    permission-mode: ${AGENT_PERMISSION_MODE:acceptEdits}
 
 telegram:
   token: ${TELEGRAM_BOT_TOKEN}
