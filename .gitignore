@@ -1,6 +1,7 @@
-﻿# Secrets
+# Secrets
 .env
 .env.*
+!.env.example
 application-local.yml
 application-local.properties
 application-secrets*.yml
@@ -15,3 +16,8 @@ id_ed25519*
 workspace/
 sessions/
 *.log
+
+# IDE and build output
+.idea/
+*.iml
+target/
