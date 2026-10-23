@@ -1,11 +1,12 @@
 package com.dmytrot.agentforge.agent;
 
+import java.time.Clock;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/** Provides the executor on which agent tasks run. */
+/** Provides the executor on which agent tasks run, and the clock that times them. */
 @Configuration
 public class AgentConfig {
 
@@ -17,5 +18,15 @@ public class AgentConfig {
   @Bean
   public Executor agentExecutor() {
     return Executors.newSingleThreadExecutor();
+  }
+
+  /**
+   * Provides the time source, so code that measures durations can be tested with a fixed clock.
+   *
+   * @return the system clock
+   */
+  @Bean
+  public Clock clock() {
+    return Clock.systemUTC();
   }
 }

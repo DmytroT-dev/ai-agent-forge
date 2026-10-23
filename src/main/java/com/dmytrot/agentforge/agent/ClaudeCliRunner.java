@@ -13,6 +13,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
@@ -24,6 +25,8 @@ public class ClaudeCliRunner implements AgentRunner {
 
   private final ClaudeProperties properties;
   private final StreamJsonParser parser = new StreamJsonParser();
+  private final AtomicBoolean cancelled = new AtomicBoolean();
+  private volatile Process current;
 
   /**
    * Creates the runner.
@@ -41,21 +44,26 @@ public class ClaudeCliRunner implements AgentRunner {
 
   @Override
   public AgentReply run(String prompt, Optional<String> sessionId) {
+    cancelled.set(false);
     Process process = start(sessionId);
+    current = process;
     // The prompt goes through stdin, never through arguments: user text cannot be mistaken for
     // an option or reach a shell, and it is not limited by the command line length.
     try (var stdin = process.getOutputStream()) {
       stdin.write(prompt.getBytes(StandardCharsets.UTF_8));
     } catch (IOException e) {
-      process.destroyForcibly();
+      kill(process);
       throw new AgentException("Cannot pass the prompt to the agent", e);
     }
     CompletableFuture<Optional<AgentReply>> output =
         CompletableFuture.supplyAsync(() -> readResult(process));
     try {
-      return output
-          .get(properties.timeout().toMillis(), TimeUnit.MILLISECONDS)
-          .orElseThrow(() -> new AgentException("The agent finished without a result"));
+      Optional<AgentReply> result =
+          output.get(properties.timeout().toMillis(), TimeUnit.MILLISECONDS);
+      if (cancelled.get()) {
+        throw new AgentCancelledException();
+      }
+      return result.orElseThrow(() -> new AgentException("The agent finished without a result"));
     } catch (TimeoutException e) {
       throw new AgentException("The agent did not finish in " + properties.timeout(), e);
     } catch (InterruptedException e) {
@@ -64,8 +72,24 @@ public class ClaudeCliRunner implements AgentRunner {
     } catch (ExecutionException e) {
       throw new AgentException("Cannot read the agent output", e.getCause());
     } finally {
-      process.destroyForcibly();
+      current = null;
+      kill(process);
     }
+  }
+
+  @Override
+  public void cancel() {
+    Process process = current;
+    if (process != null) {
+      cancelled.set(true);
+      kill(process);
+    }
+  }
+
+  /** Kills the process together with its children: on Windows the CLI runs behind a shim. */
+  private static void kill(Process process) {
+    process.descendants().forEach(ProcessHandle::destroyForcibly);
+    process.destroyForcibly();
   }
 
   private Process start(Optional<String> sessionId) {
