@@ -8,15 +8,22 @@ import static org.mockito.Mockito.when;
 
 import com.dmytrot.agentforge.agent.AgentService;
 import com.dmytrot.agentforge.agent.ContextUsage;
+import com.dmytrot.agentforge.agent.RateLimits;
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class BotCommandsTest {
 
+  private static final Instant NOW = Instant.parse("2026-01-01T00:00:00Z");
+  private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
+
   private final AgentService agent = mock(AgentService.class);
   private final TaskTracker tracker = mock(TaskTracker.class);
-  private final BotCommands commands = new BotCommands(agent, tracker);
+  private final BotCommands commands = new BotCommands(agent, tracker, CLOCK);
 
   @Test
   void newStartsFreshSessionWhenIdle() {
@@ -55,12 +62,19 @@ class BotCommandsTest {
     when(tracker.runningFor()).thenReturn(Optional.of(Duration.ofSeconds(75)));
     when(agent.sessionId()).thenReturn(Optional.of("6c4ff302-898b-42a1-b4f1-78cba3fef9e8"));
     when(agent.contextUsage()).thenReturn(Optional.of(new ContextUsage(34_584, 1_000_000)));
+    when(agent.rateLimits())
+        .thenReturn(
+            Optional.of(
+                new RateLimits(
+                    new RateLimits.Window(0.28, NOW.plusSeconds(8_100)),
+                    new RateLimits.Window(0.04, NOW.plusSeconds(3 * 86_400 + 4 * 3_600)))));
 
     assertThat(commands.handle("/status"))
         .isEqualTo(
             "Task: running for 1m 15s\n"
                 + "Session: 6c4ff302\n"
-                + "Context: 34,584 of 1,000,000 tokens used, 965,416 left (97%)");
+                + "Context: 34,584 of 1,000,000 tokens used, 965,416 left (97%)\n"
+                + "Limits: 5h 28% used, resets in 2h 15m, week 4% used, resets in 3d 4h");
   }
 
   @Test
@@ -71,7 +85,8 @@ class BotCommandsTest {
 
     assertThat(commands.handle("/status"))
         .isEqualTo(
-            "Task: idle\nSession: none\nContext: unknown until a task finishes");
+            "Task: idle\nSession: none\nContext: unknown until a task finishes\n"
+                + "Limits: unknown until a task finishes");
   }
 
   @Test

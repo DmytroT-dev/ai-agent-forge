@@ -3,37 +3,76 @@ package com.dmytrot.agentforge.agent;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
 import java.util.Optional;
 
-/** Extracts the final answer from the line-per-event output of {@code stream-json}. */
+/** Reads the events of the line-per-event output of {@code stream-json}. */
 class StreamJsonParser {
 
   private final ObjectMapper mapper = new ObjectMapper();
 
   /**
-   * Parses one output line.
+   * Parses the final answer.
    *
    * @param line a single line printed by the CLI
    * @return the reply if this line is the final {@code result} event, otherwise empty
    */
   Optional<AgentReply> parseResult(String line) {
-    JsonNode node;
+    return read(line)
+        .filter(n -> "result".equals(n.path("type").asText()))
+        .map(
+            n ->
+                new AgentReply(
+                    n.path("result").asText(""),
+                    n.hasNonNull("session_id") ? n.get("session_id").asText() : null,
+                    n.path("is_error").asBoolean(false),
+                    parseUsage(n),
+                    null));
+  }
+
+  /**
+   * Reads the session id from the first event of a run.
+   *
+   * @param line a single line printed by the CLI
+   * @return the session id if this is the {@code init} event, otherwise empty
+   */
+  Optional<String> parseInitSessionId(String line) {
+    return read(line)
+        .filter(n -> "system".equals(n.path("type").asText()))
+        .filter(n -> "init".equals(n.path("subtype").asText()))
+        .filter(n -> n.hasNonNull("session_id"))
+        .map(n -> n.get("session_id").asText());
+  }
+
+  /**
+   * Reads the subscription limits from a rate limit event.
+   *
+   * @param line a single line printed by the CLI
+   * @return the limits if this is a {@code rate_limit_event} that carries any window
+   */
+  Optional<RateLimits> parseRateLimits(String line) {
+    return read(line)
+        .filter(n -> "rate_limit_event".equals(n.path("type").asText()))
+        .map(n -> n.path("rate_limit_info").path("unifiedWindows"))
+        .map(w -> new RateLimits(window(w.path("five_hour")), window(w.path("seven_day"))))
+        .filter(limits -> limits.fiveHour() != null || limits.sevenDay() != null);
+  }
+
+  private Optional<JsonNode> read(String line) {
     try {
-      node = mapper.readTree(line);
+      return Optional.ofNullable(mapper.readTree(line));
     } catch (JsonProcessingException e) {
       // Anything that is not JSON is noise, not a reason to abort the whole run.
       return Optional.empty();
     }
-    if (node == null || !"result".equals(node.path("type").asText())) {
-      return Optional.empty();
+  }
+
+  private static RateLimits.Window window(JsonNode node) {
+    if (!node.hasNonNull("utilization") || !node.hasNonNull("resetsAt")) {
+      return null;
     }
-    String sessionId = node.hasNonNull("session_id") ? node.get("session_id").asText() : null;
-    return Optional.of(
-        new AgentReply(
-            node.path("result").asText(""),
-            sessionId,
-            node.path("is_error").asBoolean(false),
-            parseUsage(node)));
+    return new RateLimits.Window(
+        node.get("utilization").asDouble(), Instant.ofEpochSecond(node.get("resetsAt").asLong()));
   }
 
   private static ContextUsage parseUsage(JsonNode result) {

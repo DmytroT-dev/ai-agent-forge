@@ -20,6 +20,9 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 public class AgentUpdateConsumer implements LongPollingSingleThreadUpdateConsumer {
 
   private static final Logger log = LoggerFactory.getLogger(AgentUpdateConsumer.class);
+  private static final String CONTINUE_COMMAND = "/continue";
+  private static final String CONTINUE_PROMPT =
+      "Continue the task you were working on before it was interrupted.";
 
   private final UserWhitelist whitelist;
   private final AgentService agent;
@@ -66,9 +69,14 @@ public class AgentUpdateConsumer implements LongPollingSingleThreadUpdateConsume
     long chatId = update.getMessage().getChatId();
     String text = update.getMessage().getText();
     if (text.startsWith("/")) {
-      send(chatId, commands.handle(text));
-      return;
+      // /continue is an ordinary task with a fixed prompt, so it goes through the agent below.
+      if (!CONTINUE_COMMAND.equals(BotCommands.nameOf(text))) {
+        send(chatId, commands.handle(text));
+        return;
+      }
+      text = CONTINUE_PROMPT;
     }
+    String prompt = text;
     // One task at a time: they share one session and one workspace.
     if (!tracker.tryStart()) {
       send(chatId, "Still working on the previous task. Send /stop to cancel it.");
@@ -77,7 +85,7 @@ public class AgentUpdateConsumer implements LongPollingSingleThreadUpdateConsume
     executor.execute(
         () -> {
           try {
-            handle(chatId, text);
+            handle(chatId, prompt);
           } finally {
             tracker.finish();
           }

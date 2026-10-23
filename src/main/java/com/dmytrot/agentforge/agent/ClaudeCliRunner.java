@@ -55,15 +55,19 @@ public class ClaudeCliRunner implements AgentRunner {
       kill(process);
       throw new AgentException("Cannot pass the prompt to the agent", e);
     }
+    RunState state = new RunState();
     CompletableFuture<Optional<AgentReply>> output =
-        CompletableFuture.supplyAsync(() -> readResult(process));
+        CompletableFuture.supplyAsync(() -> readResult(process, state));
     try {
       Optional<AgentReply> result =
           output.get(properties.timeout().toMillis(), TimeUnit.MILLISECONDS);
       if (cancelled.get()) {
-        throw new AgentCancelledException();
+        // The session id lets the caller keep what the stopped task had already done.
+        throw new AgentCancelledException(state.sessionId);
       }
-      return result.orElseThrow(() -> new AgentException("The agent finished without a result"));
+      return result
+          .map(reply -> reply.withLimits(state.limits))
+          .orElseThrow(() -> new AgentException("The agent finished without a result"));
     } catch (TimeoutException e) {
       throw new AgentException("The agent did not finish in " + properties.timeout(), e);
     } catch (InterruptedException e) {
@@ -121,13 +125,15 @@ public class ClaudeCliRunner implements AgentRunner {
     }
   }
 
-  private Optional<AgentReply> readResult(Process process) {
+  private Optional<AgentReply> readResult(Process process, RunState state) {
     try (var reader =
         new BufferedReader(
             new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
       Optional<AgentReply> result = Optional.empty();
       String line;
       while ((line = reader.readLine()) != null) {
+        parser.parseInitSessionId(line).ifPresent(id -> state.sessionId = id);
+        parser.parseRateLimits(line).ifPresent(limits -> state.limits = limits);
         Optional<AgentReply> parsed = parser.parseResult(line);
         if (parsed.isPresent()) {
           result = parsed;
@@ -137,5 +143,12 @@ public class ClaudeCliRunner implements AgentRunner {
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
+  }
+
+  /** What the output reader learns along the way, shared with the thread that waits for it. */
+  private static final class RunState {
+
+    private volatile String sessionId;
+    private volatile RateLimits limits;
   }
 }
